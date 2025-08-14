@@ -1,0 +1,8 @@
+---
+- name: Backup Uptime Kuma data
+  archive:
+    path: /opt/uptime-kuma/data
+    dest: "/root/uptime-kuma-backup_{{ ansible_date_time.date }}.tgz"
+    format: gz
+    remove: no
+  tags: [backup]

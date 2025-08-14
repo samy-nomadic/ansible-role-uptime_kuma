@@ -1,0 +1,13 @@
+---
+galaxy_info:
+  role_name: uptime_kuma
+  author: dein_name
+  description: Ansible role to deploy, backup, and restore Uptime Kuma via Docker.
+  license: MIT
+  min_ansible_version: 2.9
+  platforms:
+    - name: Ubuntu
+      versions:
+        - all
+
+dependencies: []

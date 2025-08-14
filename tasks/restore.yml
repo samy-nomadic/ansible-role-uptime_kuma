@@ -1,0 +1,66 @@
+---
+- name: Check if backup file exists
+  stat:
+    path: "{{ backup_file | default('/root/uptime-kuma-backup_2025-08-14.tgz') }}"
+  register: backup_status
+  tags: [restore]
+
+- name: Fail if backup does not exist
+  fail:
+    msg: "Backup file not found: {{ backup_file }}"
+  when: not backup_status.stat.exists
+  tags: [restore]
+
+- name: Stop Uptime Kuma container
+  shell: docker compose down
+  args:
+    chdir: /opt/uptime-kuma
+  ignore_errors: true
+  tags: [restore]
+
+- name: Backup existing data (optional)
+  archive:
+    path: /opt/uptime-kuma/data
+    dest: "/root/uptime-kuma-pre-restore_{{ ansible_date_time.date }}.tgz"
+    format: gz
+    remove: no
+  when: backup_status.stat.exists
+  tags: [restore]
+
+- name: Clean existing data dir
+  file:
+    path: /opt/uptime-kuma/data
+    state: absent
+  tags: [restore]
+
+- name: Ensure kuma user exists
+  user:
+    name: kuma
+    system: yes
+    shell: /usr/sbin/nologin
+    create_home: no
+  tags: [restore]
+
+- name: Recreate empty data dir
+  file:
+    path: /opt/uptime-kuma/data
+    state: directory
+    owner: kuma
+    group: kuma
+    mode: "0750"
+  tags: [restore]
+
+- name: Extract backup archive
+  unarchive:
+    src: "{{ backup_file }}"
+    dest: /opt/uptime-kuma/
+    remote_src: yes
+    owner: kuma
+    group: kuma
+  tags: [restore]
+
+- name: Start Uptime Kuma
+  shell: docker compose up -d
+  args:
+    chdir: /opt/uptime-kuma
+  tags: [restore]

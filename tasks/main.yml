@@ -1,0 +1,76 @@
+---
+- name: Create kuma system user
+  user:
+    name: kuma
+    system: yes
+    shell: /usr/sbin/nologin
+    create_home: no
+  tags: [uptime_kuma]
+
+- name: Ensure Docker is running and enabled
+  service:
+    name: docker
+    state: started
+    enabled: true
+  tags: [uptime_kuma]
+
+- name: Create app dir
+  file:
+    path: /opt/uptime-kuma
+    state: directory
+    mode: "0755"
+    owner: kuma
+    group: kuma
+  tags: [uptime_kuma]
+
+- name: Create data dir
+  file:
+    path: /opt/uptime-kuma/data
+    state: directory
+    mode: "0750"
+    owner: kuma
+    group: kuma
+  tags: [uptime_kuma]
+
+- name: Get UID of kuma user
+  command: id -u kuma
+  register: kuma_uid
+  changed_when: false
+  tags: [uptime_kuma]
+
+- name: Get GID of kuma user
+  command: id -g kuma
+  register: kuma_gid
+  changed_when: false
+  tags: [uptime_kuma]
+
+- name: Deploy docker-compose
+  template:
+    src: docker-compose.yml.j2
+    dest: /opt/uptime-kuma/docker-compose.yml
+    owner: kuma
+    group: kuma
+    mode: "0644"
+  notify: Restart Uptime Kuma
+  tags: [uptime_kuma]
+
+- name: Pull images
+  shell: docker compose pull
+  args:
+    chdir: /opt/uptime-kuma
+  register: pull_out
+  changed_when: "'Downloaded' in pull_out.stdout or 'Pulled' in pull_out.stdout"
+  tags: [uptime_kuma]
+
+- name: Up (create/update)
+  shell: docker compose up -d
+  args:
+    chdir: /opt/uptime-kuma
+  register: up_out
+  changed_when: "'Creating' in up_out.stdout or 'Recreating' in up_out.stdout or 'Starting' in up_out.stdout"
+  tags: [uptime_kuma]
+
+- name: (Optional) Prune unused Docker objects
+  shell: docker system prune -f
+  when: cleanup is defined and cleanup
+  tags: [uptime_kuma]
